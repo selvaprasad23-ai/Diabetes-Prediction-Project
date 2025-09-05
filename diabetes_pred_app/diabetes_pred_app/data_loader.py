@@ -52,13 +52,46 @@ def fetch_and_cache_dataset() -> pd.DataFrame:
     return df
 
 def get_feature_target(df: pd.DataFrame):
-    feature_cols = [
-        'Pregnancies', 'Glucose', 'BloodPressure', 'SkinThickness',
-        'Insulin', 'BMI', 'DiabetesPedigreeFunction', 'Age'
-    ]
-    X = df[feature_cols].copy()
-    y = df['Outcome'].astype(int).copy()
+    """
+    Extracts features (X) and target (y) from the dataset.
+    Automatically detects target column and converts to numeric.
+    Works with 0/1, Yes/No, Positive/Negative, Diabetic/Non-diabetic.
+    """
+
+    # 1. Candidate target columns (auto-detect)
+    possible_targets = ['Outcome', 'Diabetes', 'Class', 'Target']
+    target_col = None
+    for col in possible_targets:
+        if col in df.columns:
+            target_col = col
+            break
+
+    if target_col is None:
+        raise ValueError(f"No valid target column found! Expected one of: {possible_targets}")
+
+    # 2. Extract target
+    y = df[target_col].copy()
+
+    # 3. Convert target to numeric (0/1)
+    if y.dtype == object:
+        y = y.astype(str).str.strip().str.lower()
+        mapping = {
+            'yes': 1, 'no': 0,
+            'positive': 1, 'negative': 0,
+            'diabetic': 1, 'nondiabetic': 0
+        }
+        y = y.replace(mapping)
+
+    try:
+        y = y.astype(int)
+    except ValueError:
+        raise ValueError(f"Cannot convert target column '{target_col}' to integers. Found values: {y.unique()}")
+
+    # 4. Features = everything except target column
+    X = df.drop(columns=[target_col]).copy()
+
     return X, y
+
 
 def train_test(df: pd.DataFrame, test_size: float = 0.2) -> Tuple:
     X, y = get_feature_target(df)
