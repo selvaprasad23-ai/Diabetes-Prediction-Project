@@ -15,6 +15,7 @@ RANDOM_STATE = 42
 def fetch_and_cache_dataset() -> pd.DataFrame:
     if os.path.exists(CACHE_PATH):
         return pd.read_csv(CACHE_PATH)
+
     df = fetch_openml(name='diabetes', version=1, as_frame=True).frame
     # Normalize column names to friendlier ones
     col_map = {
@@ -28,28 +29,27 @@ def fetch_and_cache_dataset() -> pd.DataFrame:
         'age': 'Age',
         'class': 'Outcome'
     }
-    # Some versions use slightly different short names; handle both
-    df = df.rename(columns={
-        'preg': 'Pregnancies',
-        'plas': 'Glucose',
-        'pres': 'BloodPressure',
-        'skin': 'SkinThickness',
-        'insu': 'Insulin',
-        'mass': 'BMI',
-        'pedi': 'DiabetesPedigreeFunction',
-        'age': 'Age',
-        'class': 'Outcome'
-    })
-    # If columns already have long names (Kaggle-style), keep them
-    if 'Outcome' not in df.columns and 'class' in df.columns:
-        df = df.rename(columns={'class': 'Outcome'})
-    # Convert outcome to 0/1
-    if df['Outcome'].dtype == object:
-        df['Outcome'] = (df['Outcome'].str.contains('positive', case=False)).astype(int)
-    # Save cache
-    os.makedirs('data', exist_ok=True)
-    df.to_csv(CACHE_PATH, index=False)
+    df = df.rename(columns=col_map)
+
+    # 🔧 Ensure Outcome is always numeric  # <<< ADD THIS
+    if 'Outcome' in df.columns:           # <<< ADD THIS
+        if df['Outcome'].dtype == object: # <<< ADD THIS
+            df['Outcome'] = (             # <<< ADD THIS
+                df['Outcome']             # <<< ADD THIS
+                .astype(str)              # <<< ADD THIS
+                .str.strip()              # <<< ADD THIS
+                .str.lower()              # <<< ADD THIS
+                .replace({'yes': 1, 'no': 0, 'positive': 1, 'negative': 0,   # <<< ADD THIS
+                          'tested_positive': 1, 'tested_negative': 0})       # <<< ADD THIS
+            )                             # <<< ADD THIS
+
+        try:                              # <<< ADD THIS
+            df['Outcome'] = df['Outcome'].astype(int)  # <<< ADD THIS
+        except ValueError:                # <<< ADD THIS
+            raise ValueError(f"Cannot convert Outcome column to integers. Found values: {df['Outcome'].unique()}")  # <<< ADD THIS
+
     return df
+
 
 def get_feature_target(df: pd.DataFrame):
     """
