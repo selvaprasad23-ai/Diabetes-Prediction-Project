@@ -17,7 +17,6 @@ def fetch_and_cache_dataset() -> pd.DataFrame:
         return pd.read_csv(CACHE_PATH)
 
     df = fetch_openml(name='diabetes', version=1, as_frame=True).frame
-    # Normalize column names to friendlier ones
     col_map = {
         'preg': 'Pregnancies',
         'plas': 'Glucose',
@@ -31,25 +30,28 @@ def fetch_and_cache_dataset() -> pd.DataFrame:
     }
     df = df.rename(columns=col_map)
 
-    # 🔧 Ensure Outcome is always numeric  # <<< ADD THIS
-    if 'Outcome' in df.columns:           # <<< ADD THIS
-        if df['Outcome'].dtype == object: # <<< ADD THIS
-            df['Outcome'] = (             # <<< ADD THIS
-                df['Outcome']             # <<< ADD THIS
-                .astype(str)              # <<< ADD THIS
-                .str.strip()              # <<< ADD THIS
-                .str.lower()              # <<< ADD THIS
-                .replace({'yes': 1, 'no': 0, 'positive': 1, 'negative': 0,   # <<< ADD THIS
-                          'tested_positive': 1, 'tested_negative': 0})       # <<< ADD THIS
-            )                             # <<< ADD THIS
-
-        try:                              # <<< ADD THIS
-            df['Outcome'] = df['Outcome'].astype(int)  # <<< ADD THIS
-        except ValueError:                # <<< ADD THIS
-            raise ValueError(f"Cannot convert Outcome column to integers. Found values: {df['Outcome'].unique()}")  # <<< ADD THIS
+    # 🔧 Ensure Outcome column is numeric
+    if 'Outcome' in df.columns:
+        df['Outcome'] = (
+            df['Outcome']
+            .astype(str)
+            .str.strip()
+            .str.lower()
+            .replace({
+                'tested_positive': 1,
+                'tested_negative': 0,
+                'positive': 1,
+                'negative': 0,
+                'yes': 1,
+                'no': 0
+            })
+        )
+        # Finally convert to integers
+        df['Outcome'] = pd.to_numeric(df['Outcome'], errors='coerce')
+        if df['Outcome'].isna().any():
+            raise ValueError(f"Outcome column has non-convertible values: {df['Outcome'].unique()}")
 
     return df
-
 
 def get_feature_target(df: pd.DataFrame):
     """
