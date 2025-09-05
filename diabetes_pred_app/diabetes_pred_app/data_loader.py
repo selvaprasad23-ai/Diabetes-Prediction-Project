@@ -14,23 +14,25 @@ RANDOM_STATE = 42
 
 def fetch_and_cache_dataset() -> pd.DataFrame:
     if os.path.exists(CACHE_PATH):
-        return pd.read_csv(CACHE_PATH)
+        df = pd.read_csv(CACHE_PATH)
+    else:
+        df = fetch_openml(name='diabetes', version=1, as_frame=True).frame
 
-    df = fetch_openml(name='diabetes', version=1, as_frame=True).frame
-    col_map = {
-        'preg': 'Pregnancies',
-        'plas': 'Glucose',
-        'pres': 'BloodPressure',
-        'skin': 'SkinThickness',
-        'insu': 'Insulin',
-        'mass': 'BMI',
-        'pedi': 'DiabetesPedigreeFunction',
-        'age': 'Age',
-        'class': 'Outcome'
-    }
-    df = df.rename(columns=col_map)
+        # Normalize column names
+        col_map = {
+            'preg': 'Pregnancies',
+            'plas': 'Glucose',
+            'pres': 'BloodPressure',
+            'skin': 'SkinThickness',
+            'insu': 'Insulin',
+            'mass': 'BMI',
+            'pedi': 'DiabetesPedigreeFunction',
+            'age': 'Age',
+            'class': 'Outcome'
+        }
+        df = df.rename(columns=col_map)
 
-    # 🔧 Ensure Outcome column is numeric
+    # ✅ Ensure Outcome column is numeric
     if 'Outcome' in df.columns:
         df['Outcome'] = (
             df['Outcome']
@@ -46,11 +48,15 @@ def fetch_and_cache_dataset() -> pd.DataFrame:
                 'no': 0
             })
         )
-        # Finally convert to integers
         df['Outcome'] = pd.to_numeric(df['Outcome'], errors='coerce')
-        if df['Outcome'].isna().any():
-            raise ValueError(f"Outcome column has non-convertible values: {df['Outcome'].unique()}")
 
+        if df['Outcome'].isna().any():
+            raise ValueError(
+                f"Outcome column contains invalid values: {df['Outcome'].unique()}"
+            )
+
+    os.makedirs(os.path.dirname(CACHE_PATH), exist_ok=True)
+    df.to_csv(CACHE_PATH, index=False)
     return df
 
 def get_feature_target(df: pd.DataFrame):
